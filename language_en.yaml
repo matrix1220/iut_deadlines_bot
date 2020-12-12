@@ -1,0 +1,71 @@
+language: "English"
+select_language: 'Select language:'
+
+welcome: "Welcome"
+help: "/help - help"
+about: "This bot was developed by @matrix_1220. Please feel free to contact if you have any suggestions."
+
+error: 'Error'
+back: 'Back'
+yeap: 'Yes' 
+select: 'Select:'
+empty: "Empty"
+not_found: "Not Found"
+successful: "Successful"
+
+
+main_menu:
+  title: "Main Menu"
+
+  deadlines: "Deadlines"
+  my_group: "My Group"
+  my_subjects: "My Subjects"
+
+  not_in_group: "Enter code of a group or create new group"
+  new_group: "Create new group"
+
+
+deadlines:
+  refresh: "Refresh"
+
+my_group:
+  add_subject: "Add subject"
+  leave_group: "Leave group"
+  enter_subject_code: "Enter subject code"
+
+my_subjects:
+  new_subject: "New Subject"
+  new_deadline: "New deadline"
+
+
+deadline_menu:
+  mark_as_done: "Mark as done"
+  mark_as_undone: "Mark as undone"
+  edit: "edit"
+
+subject_menu:
+  new_deadline: "New deadline"
+
+
+new_group:
+  enter_name: "Enter group name"
+
+new_subject:
+  enter_name: "Enter subject name"
+  enter_shortname: "Enter subject shortname"
+
+new_deadline:
+  enter_name: "Enter assignment name"
+  enter_shortname: "Enter assignment shortname"
+  enter_date: "Enter date (DD.MM.YYYY or DD.MM or DD)"
+  enter_time: "Enter time (HH:MM)"
+
+edit_deadline:
+  title: "Edit deadline"
+
+  name: "name"
+  shortname: "shortname"
+  date: "date"
+  time: "time"
+
+  delete: "delete"

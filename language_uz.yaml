@@ -1,0 +1,40 @@
+language: "O'zbekcha"
+select_language: 'Tilni tanlash:'
+
+welcome: "Hush kelibsiz"
+help: "/help - yordam"
+
+error: 'Error'
+back: 'Back'
+yeap: 'Ha' 
+all: 'Hammasi'
+select: 'Select:'
+empty: "Empty"
+not_found: "Not Found"
+
+
+main:
+  message: "Main Menu"
+
+  deadlines: "Deadlines"
+  my_group: "My Group"
+  my_subjects: "My Subjects"
+  keyboard:
+    - - "{main.deadlines}"
+    - - "{main.my_group}"
+    - - "{main.my_subjects}"
+
+deadlines:
+  not_in_group: "You are not in a group. Please make one or join one."
+
+  mark_as_done: "Mark as done"
+
+my_group:
+  not_in_group: "You are not in a group. Please make one or join one. In order to join please enter the code of group."
+
+  create: "Create group"
+  add_subject: "Add subject"
+
+my_subjects:
+  new_subject: "New Subject"
+  add_deadline: "Add deadline"
