@@ -14,12 +14,13 @@ class JSONEncoded(TypeDecorator):
         return value
 
 from sqlalchemy.ext.mutable import Mutable, MutableList, MutableDict
+from photon.object_dict import ObjectDict, objectify, dictify
 
 class MutableObject(MutableDict):
 	@classmethod
 	def coerce(cls, key, value):
 		if isinstance(value, dict):
-			return MutableObject(value)
+			return MutableObject(objectify(value))
 		return MutableDict.coerce(key, value)
 
 	def __setattr__(self, attr, value):

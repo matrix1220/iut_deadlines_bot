@@ -2,8 +2,27 @@ from werkzeug.wrappers import Request, Response
 from werkzeug.exceptions import HTTPException, NotFound
 
 from object_dict import objectify, dictify
+
 from bot import handle
-import json
+
+import json, datetime, time, decimal, logging
+
+
+class CustomEncoder(json.JSONEncoder):
+    def default(self, data):
+        if isinstance(data, datetime.datetime):
+            return data.timestamp()
+        elif isinstance(data, datetime.date):
+            return time.mktime(data.timetuple())
+        elif isinstance(data, decimal.Decimal):
+            return float(data)
+        elif isinstance(data, db.base):
+            return row_as_dict(data)
+        else:
+            return super().default(data)
+
+def json_dump(data):
+	return json.dumps(data, cls=CustomEncoder)
 
 class JSONException(HTTPException):
 	def get_headers(self, environ = None):
@@ -18,22 +37,14 @@ class JSONNotFound(NotFound, JSONException):
 
 class JSONResponse(Response):
 	def __init__(self, response):
-		_Response.__init__(self, json.dumps({"ok":True, "result":response}))
+		Response.__init__(self, json.dumps(response))
 
 
 @Request.application
 def application(request):
 	try:
 		request_data = objectify(json.loads(request.data.decode()))
-		response = handle(request)
-		if response: return request_data(json.dumps(response))
+		response = handle(request_data)
+		if response: return JSONResponse(response)
 	except Exception as e:
-		#print(traceback.format_exc())
-		try:
-			bot.sendMessage(108268232, traceback.format_exc())
-		except Exception as e:
-			print(traceback.format_exc())
-
-if __name__ == '__main__':
-    from werkzeug.serving import run_simple
-    run_simple('0.0.0.0', 5000, application, use_debugger=False, use_reloader=False)
+		logging.exception(e)

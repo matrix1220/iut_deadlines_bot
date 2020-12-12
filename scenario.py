@@ -1,13 +1,11 @@
 from config import bot, db, languages
-from Telegrambot import response, inline_button
+from photon import response, inline_button, handler
 from dbscheme import User, Group, Subject, Deadline, GroupSubject, DoneDeadline
-from utilities import format
+from photon.utils import format
 
 from sqlalchemy import and_
 
 import datetime, random, string, re
-
-from botcore import handler
 
 session = db.session
 
@@ -17,7 +15,7 @@ def shorten_name(name):
 
 @handler
 class SelectLanguage:
-	def act(user):
+	async def act(user):
 		user.passes() # SelectLanguage.ids
 		text = ''
 		keyboard = []
@@ -25,7 +23,7 @@ class SelectLanguage:
 			text += language.select_language + "\n"
 			keyboard.append([language.language])
 		return response.sendMessage(user.id, text, keyboard=keyboard)
-	def handle_text(user, text):
+	async def handle_text(user, text):
 		for x, language in enumerate(languages):
 			if text == language.language:
 				user.language = x
@@ -34,9 +32,9 @@ class SelectLanguage:
 
 @handler
 class MainMenu:
-	def act(user):
+	async def act(user):
 		user.goback = []
-		if user.language==None: return user.act(SelectLanguage)()
+		if user.language==None: return await user.act(SelectLanguage)()
 		user.passes() # MainMenu.ids
 		if user.group_id:
 			keyboard = [[user.lang.main_menu.deadlines], [user.lang.main_menu.my_group], [user.lang.main_menu.my_subjects]]
@@ -45,30 +43,30 @@ class MainMenu:
 			keyboard = [[user.lang.main_menu.new_group]]
 			return response.sendMessage(user.id, user.lang.main_menu.not_in_group, keyboard=keyboard)
 
-	def handle_text(user, text):
+	async def handle_text(user, text):
 		if user.group_id:
 			if text == "/help":
 				return response.sendMessage(user.id, user.lang.help)
 			elif text == "/about":
 				return response.sendMessage(user.id, user.lang.about)
 			elif text == user.lang.main_menu.deadlines:
-				return user.act(Deadlines)()
+				return await user.act(Deadlines)()
 			elif text == user.lang.main_menu.my_group:
-				return user.act(MyGroup)()
+				return await user.act(MyGroup)()
 			elif text == user.lang.main_menu.my_subjects:
-				return user.act(MySubjects)()
+				return await user.act(MySubjects)()
 		else:
 			if text == user.lang.main_menu.new_group:
-				return user.act(NewGroup)()
+				return await user.act(NewGroup)()
 			else:
 				group = session.query(Group).filter(Group.code==text).first()
 				if not group: return response.sendMessage(user.id, user.lang.not_found)
 				user.group_id = group.id
-				return user.act(MyGroup)()
+				return await user.act(MyGroup)()
 
 @handler
 class Deadlines:
-	def act(user):
+	async def act(user):
 		if not user.group_id: return response.sendMessage(user.id, user.lang.error)
 		user.passes() # Deadlines.ids
 		deadlines = session.query(Deadline).filter(and_(
@@ -88,19 +86,19 @@ class Deadlines:
 		keyboard = [[user.lang.deadlines.refresh], [user.lang.back]]
 		return response.sendMessage(user.id, text, keyboard=keyboard)
 
-	def handle_text(user, text):
+	async def handle_text(user, text):
 		if text == user.lang.back: return user.back()
-		elif text == user.lang.deadlines.refresh: return user.explicit_act(Deadlines)()
+		elif text == user.lang.deadlines.refresh: return await user.explicit_act(Deadlines)()
 		deadlines = session.query(Deadline).filter(
 			Deadline.subject_id.in_(session.query(GroupSubject.subject_id).filter(GroupSubject.group_id==user.group_id).cte())
 		).all()
 		for deadline in deadlines:
 			if text == f"/{deadline.id}":
-				return user.act(DeadlineMenu)(deadline_id=deadline.id)
+				return await user.act(DeadlineMenu)(deadline_id=deadline.id)
 
 @handler
 class DeadlineMenu:
-	def act(user, deadline_id):
+	async def act(user, deadline_id):
 		user.passes() # DeadlineMenu.ids
 		user.menu_arguments = {"deadline_id":deadline_id}
 		deadline = session.query(Deadline).filter(Deadline.id==deadline_id).first()
@@ -125,11 +123,11 @@ class DeadlineMenu:
 
 		return response.sendMessage(user.id, text, keyboard=keyboard)
 
-	def handle_text(user, text):
+	async def handle_text(user, text):
 		if text == user.lang.back:
 			return user.back()
 		elif text == user.lang.deadline_menu.edit:
-			return user.act(EditDeadline)(user.menu_arguments.deadline_id)
+			return await user.act(EditDeadline)(user.menu_arguments.deadline_id)
 
 		done_deadline = session.query(DoneDeadline).filter(and_(
 			DoneDeadline.user_id==user.id,
@@ -150,7 +148,7 @@ class DeadlineMenu:
 
 @handler
 class MyGroup:
-	def act(user):
+	async def act(user):
 		user.passes() # MyGroup.ids
 
 		group = session.query(Group).filter(Group.id==user.group_id).first()
@@ -163,27 +161,27 @@ class MyGroup:
 		keyboard = [[user.lang.my_group.add_subject], [user.lang.my_group.leave_group], [user.lang.back]]
 		return response.sendMessage(user.id, text, keyboard=keyboard, parse_mode="Markdown")
 
-	def handle_text(user, text):
+	async def handle_text(user, text):
 		if text == user.lang.back: return user.back()
 		elif text == user.lang.my_group.add_subject:
-			return user.act(MyGroup.AddSubject)()
+			return await user.act(MyGroup.AddSubject)()
 		elif text == user.lang.my_group.leave_group:
 			user.group_id = None
-			return user.explicit_act(MainMenu)()
+			return await user.explicit_act(MainMenu)()
 
 		subjects = session.query(Subject).filter(
 			Subject.id.in_(session.query(GroupSubject.subject_id).filter(GroupSubject.group_id==user.group_id).cte())
 		)
 		for subject in subjects:
 			if text == f"/{subject.shortname}":
-				return user.act(SubjectMenu)(subject_id=subject.id)
+				return await user.act(SubjectMenu)(subject_id=subject.id)
 
 	@handler
 	class AddSubject:
-		def act(user):
+		async def act(user):
 			user.passes() # MyGroup.AddSubject.ids
 			return response.sendMessage(user.id, user.lang.my_group.enter_subject_code, keyboard=[[user.lang.back]])
-		def handle_text(user, text):
+		async def handle_text(user, text):
 			if text == user.lang.back: return user.back()
 			subject = session.query(Subject).filter(Subject.code==text).first()
 			if not subject: return response.sendMessage(user.id, user.lang.not_found)
@@ -194,16 +192,16 @@ class MyGroup:
 
 @handler
 class NewGroup:
-	def act(user):
+	async def act(user):
 		user.menu_arguments = {}
-		return user.explicit_act(NewGroup.Name)()
+		return await user.explicit_act(NewGroup.Name)()
 
 	@handler
 	class Name:
-		def act(user):
+		async def act(user):
 			user.passes() # NewGroup.Name.ids
 			return response.sendMessage(user.id, user.lang.new_group.enter_name, keyboard=[[user.lang.back]])
-		def handle_text(user, text):
+		async def handle_text(user, text):
 			if text == user.lang.back: return user.back()
 			user.menu_arguments.name = text
 			code = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))
@@ -216,7 +214,7 @@ class NewGroup:
 
 @handler
 class MySubjects:
-	def act(user):
+	async def act(user):
 		user.passes() # MySubjects.ids
 		subjects = session.query(Subject).filter(Subject.owner==user.id).all()
 		text = "List of your subjects:\n"
@@ -229,41 +227,41 @@ class MySubjects:
 		keyboard = [[user.lang.my_subjects.new_subject], [user.lang.back]]
 		return response.sendMessage(user.id, text, keyboard=keyboard)
 
-	def handle_text(user, text):
+	async def handle_text(user, text):
 		if text == user.lang.back:
 			return user.back()
 		elif text == user.lang.my_subjects.new_subject:
-			return user.act(NewSubject)()
+			return await user.act(NewSubject)()
 
 		subjects = session.query(Subject).filter(Subject.owner==user.id)
 		for subject in subjects:
 			if text == f"/{subject.shortname}":
-				return user.act(SubjectMenu)(subject_id=subject.id)
+				return await user.act(SubjectMenu)(subject_id=subject.id)
 
 @handler
 class NewSubject:
-	def act(user):
+	async def act(user):
 		user.menu_arguments = {}
-		return user.act(NewSubject.Name)()
+		return await user.act(NewSubject.Name)()
 
 	# 	if text == user.lang.back: return user.back()
 	@handler
 	class Name:
-		def act(user):
+		async def act(user):
 			user.passes() # NewSubject.Name.ids
 			return response.sendMessage(user.id, user.lang.new_subject.enter_name, keyboard=[[user.lang.back]])
-		def handle_text(user, text):
+		async def handle_text(user, text):
 			if text == user.lang.back: return user.back()
 			user.menu_arguments.name = text
 			user.menu_arguments.shortname = shorten_name(text)
-			return user.explicit_act(NewSubject.ShortName)()
+			return await user.explicit_act(NewSubject.ShortName)()
 
 	@handler
 	class ShortName:
-		def act(user):
+		async def act(user):
 			user.passes() # NewSubject.ShortName.ids
 			return response.sendMessage(user.id, user.lang.new_subject.enter_shortname, keyboard=[[user.menu_arguments.shortname], [user.lang.back]])
-		def handle_text(user, text):
+		async def handle_text(user, text):
 			if text == user.lang.back: return user.back()
 			if re.match("[^a-zA-Z0-9_]", text)!=None: return response.sendMessage(user.id, user.lang.error)
 			user.menu_arguments.shortname = text
@@ -275,7 +273,7 @@ class NewSubject:
 
 @handler
 class SubjectMenu:
-	def act(user, subject_id):
+	async def act(user, subject_id):
 		user.passes() # SubjectMenu.ids
 		user.menu_arguments = {"subject_id":subject_id}
 		subject = session.query(Subject).filter(Subject.id==subject_id).first()
@@ -290,20 +288,20 @@ class SubjectMenu:
 		keyboard = [[user.lang.my_subjects.new_deadline], [user.lang.back]]
 		return response.sendMessage(user.id, text, keyboard=keyboard)
 
-	def handle_text(user, text):
+	async def handle_text(user, text):
 		if text == user.lang.back:
 			return user.back()
 		elif text == user.lang.my_subjects.new_deadline:
-			return user.act(NewDeadline)(subject_id=user.menu_arguments.subject_id)
+			return await user.act(NewDeadline)(subject_id=user.menu_arguments.subject_id)
 
 		deadlines = session.query(Deadline).filter(Deadline.subject_id==user.menu_arguments.subject_id).all()
 		for deadline in deadlines:
 			if text == f"/{deadline.id}":
-				return user.act(DeadlineMenu)(deadline_id=deadline.id)
+				return await user.act(DeadlineMenu)(deadline_id=deadline.id)
 
 @handler
 class EditDeadline:
-	def act(user, deadline_id):
+	async def act(user, deadline_id):
 		user.menu_arguments = {"deadline_id":deadline_id}
 		deadline = session.query(Deadline).filter(Deadline.id==deadline_id).first()
 		if not deadline: return response.sendMessage(user.id, user.lang.not_found)
@@ -319,12 +317,12 @@ class EditDeadline:
 		user.passes()
 		return response.sendMessage(user.id, user.lang.edit_deadline.title, keyboard=keyboard)
 
-	def handle_text(user, text):
+	async def handle_text(user, text):
 		if text == user.lang.back: return user.back()
-		elif text == user.lang.edit_deadline.name: return user.act(EditDeadline.Name)()
-		elif text == user.lang.edit_deadline.shortname: return user.act(EditDeadline.ShortName)()
-		elif text == user.lang.edit_deadline.date: return user.act(EditDeadline.Date)()
-		elif text == user.lang.edit_deadline.time: return user.act(EditDeadline.Time)()
+		elif text == user.lang.edit_deadline.name: return await user.act(EditDeadline.Name)()
+		elif text == user.lang.edit_deadline.shortname: return await user.act(EditDeadline.ShortName)()
+		elif text == user.lang.edit_deadline.date: return await user.act(EditDeadline.Date)()
+		elif text == user.lang.edit_deadline.time: return await user.act(EditDeadline.Time)()
 		elif text == user.lang.edit_deadline.delete:
 			deadline = session.query(Deadline).filter(Deadline.id==user.menu_arguments.deadline_id).first()
 			session.delete(deadline)
@@ -332,10 +330,10 @@ class EditDeadline:
 
 	@handler
 	class Name:
-		def act(user):
+		async def act(user):
 			user.passes() # NewDeadline.Name.ids
 			return response.sendMessage(user.id, user.lang.new_deadline.enter_name, keyboard=[[user.lang.back]])
-		def handle_text(user, text):
+		async def handle_text(user, text):
 			if text == user.lang.back: return user.back()
 			deadline = session.query(Deadline).filter(Deadline.id==user.menu_arguments.deadline_id).first()
 			deadline.name = text
@@ -343,10 +341,10 @@ class EditDeadline:
 
 	@handler
 	class ShortName:
-		def act(user):
+		async def act(user):
 			user.passes() # NewDeadline.ShortName.ids
 			return response.sendMessage(user.id, user.lang.new_deadline.enter_shortname, keyboard=[[user.lang.back]])
-		def handle_text(user, text):
+		async def handle_text(user, text):
 			if text == user.lang.back: return user.back()
 			if re.match("[^a-zA-Z0-9_]", text)!=None: return response.sendMessage(user.id, user.lang.error)
 			deadline = session.query(Deadline).filter(Deadline.id==user.menu_arguments.deadline_id).first()
@@ -355,10 +353,10 @@ class EditDeadline:
 
 	@handler
 	class Date:
-		def act(user):
+		async def act(user):
 			user.passes() # NewDeadline.Date.ids
 			return response.sendMessage(user.id, user.lang.new_deadline.enter_date, keyboard=[[user.lang.back]])
-		def handle_text(user, text):
+		async def handle_text(user, text):
 			if text == user.lang.back: return user.back()
 
 			if matches := re.match(r"^(\d\d?)$", text):
@@ -385,10 +383,10 @@ class EditDeadline:
 
 	@handler
 	class Time:
-		def act(user):
+		async def act(user):
 			user.passes() # NewDeadline.Time.ids
 			return response.sendMessage(user.id, user.lang.new_deadline.enter_time, keyboard=[["23:59"], [user.lang.back]])
-		def handle_text(user, text):
+		async def handle_text(user, text):
 			if text == user.lang.back: return user.back()
 
 			if matches := re.match(r"^(\d\d):(\d\d)$", text):
@@ -410,43 +408,43 @@ class EditDeadline:
 
 @handler
 class NewDeadline:
-	def act(user, subject_id):
+	async def act(user, subject_id):
 		user.menu_arguments = {"subject_id":subject_id}
 		subject = session.query(Subject).filter(Subject.id==subject_id).first()
 		if not subject: return response.sendMessage(user.id, user.lang.not_found)
 		if not subject.allow_all:
 			if subject.owner!=user.id: return response.sendMessage(user.id, "you do not have permission")
-		return user.act(NewDeadline.Name)()
+		return await user.act(NewDeadline.Name)()
 
 	@handler
 	class Name:
-		def act(user):
+		async def act(user):
 			user.passes() # NewDeadline.Name.ids
 			return response.sendMessage(user.id, user.lang.new_deadline.enter_name, keyboard=[[user.lang.back]])
-		def handle_text(user, text):
+		async def handle_text(user, text):
 			if text == user.lang.back: return user.back()
 			user.menu_arguments.name = text
 			user.menu_arguments.shortname = shorten_name(text)
-			return user.explicit_act(NewDeadline.ShortName)()
+			return await user.explicit_act(NewDeadline.ShortName)()
 
 	@handler
 	class ShortName:
-		def act(user):
+		async def act(user):
 			user.passes() # NewDeadline.ShortName.ids
 			return response.sendMessage(user.id, user.lang.new_deadline.enter_shortname, keyboard=[[user.menu_arguments.shortname], [user.lang.back]])
-		def handle_text(user, text):
-			if text == user.lang.back: return user.explicit_act(NewDeadline.Name)()
+		async def handle_text(user, text):
+			if text == user.lang.back: return await user.explicit_act(NewDeadline.Name)()
 			if re.match("[^a-zA-Z0-9_]", text)!=None: return response.sendMessage(user.id, user.lang.error)
 			user.menu_arguments.shortname = text
-			return user.explicit_act(NewDeadline.Date)()
+			return await user.explicit_act(NewDeadline.Date)()
 
 	@handler
 	class Date:
-		def act(user):
+		async def act(user):
 			user.passes() # NewDeadline.Date.ids
 			return response.sendMessage(user.id, user.lang.new_deadline.enter_date, keyboard=[[user.lang.back]])
-		def handle_text(user, text):
-			if text == user.lang.back: return user.explicit_act(NewDeadline.ShortName)()
+		async def handle_text(user, text):
+			if text == user.lang.back: return await user.explicit_act(NewDeadline.ShortName)()
 
 			if matches := re.match(r"^(\d\d?)$", text):
 				input_date = {"day": int(matches.group(1))}
@@ -466,15 +464,15 @@ class NewDeadline:
 			# 	return response.sendMessage(user.id, str(e))
 
 			user.menu_arguments.deadline = input_date
-			return user.explicit_act(NewDeadline.Time)()
+			return await user.explicit_act(NewDeadline.Time)()
 
 	@handler
 	class Time:
-		def act(user):
+		async def act(user):
 			user.passes() # NewDeadline.Time.ids
 			return response.sendMessage(user.id, user.lang.new_deadline.enter_time, keyboard=[["23:59"], [user.lang.back]])
-		def handle_text(user, text):
-			if text == user.lang.back: return user.explicit_act(NewDeadline.Date)()
+		async def handle_text(user, text):
+			if text == user.lang.back: return await user.explicit_act(NewDeadline.Date)()
 
 			if matches := re.match(r"^(\d\d):(\d\d)$", text):
 				input_time = {"hour": int(matches.group(1)), "minute":int(matches.group(2)), "second":59}
@@ -496,19 +494,19 @@ class NewDeadline:
 			return user.back()
 
 # class NewDeadline:
-# 	def act(user):
+# 	async def act(user):
 # 		user.passes() # NewDeadline.ids
 # 		keyboard = [[user.lang.select], [user.lang.my_subjects.new_subject], [user.lang.back]]
 # 		return response.sendMessage(user.id, text, keyboard=keyboard)
 
-# 	def handle_text(user, text):
+# 	async def handle_text(user, text):
 # 		if text == user.lang.back:
 # 			return user.back()
 # 		elif text == user.lang.my_subjects.new_subject:
 # 			return act(MySubjects.NewSubject)(user)	
 
 # class Orders(CallbackHandler):
-# 	def act(user):
+# 	async def act(user):
 # 		return response.sendMessage(user.id, user.lang.select, inline_keyboard=keyboard)
-# 	def handle_callback(user, query, data):
+# 	async def handle_callback(user, query, data):
 # 		pass

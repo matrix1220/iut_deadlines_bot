@@ -2,36 +2,42 @@ from sqlalchemy import Integer, String, Boolean, Text, DateTime
 from sqlalchemy import Column, ForeignKey
 from sqlalchemy.orm import relationship
 
-from sqlalchemy.ext.declarative import declarative_base
-base = declarative_base()
+from config import db, languages
+Base = db.base
 
-from dbscheme_types import JSONEncoded, MutableObject
-from sqlalchemy.ext.mutable import MutableList
+from .types import JSONEncoded, MutableObject, MutableList
 
-from botcore import User as _User
+from photon.persistence.sqlalchemy import User as _User
 
 
-class User(base, _User):
+class User(Base, _User):
 	__tablename__ = 'users'
 
 	id = Column(Integer, primary_key=True)
-	menu = Column(MutableList.as_mutable(JSONEncoded))
 	menu_arguments = Column(MutableObject.as_mutable(JSONEncoded))
-	goback = Column(MutableList.as_mutable(JSONEncoded))
 	language = Column(Integer)
 	group_id = Column(Integer)
 	#blocked = Column(Boolean, default=False)
+	def find_user(user_id):
+		user = db.session.query(User).filter(User.id==user_id).first()
+		if not user:
+			user = User(id=user_id)
+			db.session.add(user)
+
+		user.lang = languages[user.language] if user.language else None
+
+		return user
 
 
 #from enum import IntEnum
 
-class TelegramGroup(base):
+class TelegramGroup(Base):
 	__tablename__ = 'telegram_groups'
 
 	id = Column(Integer, primary_key=True)
 	group_id = Column(Integer)
 
-class Group(base):
+class Group(Base):
 	__tablename__ = 'groups'
 
 	id = Column(Integer, primary_key=True)
@@ -40,21 +46,21 @@ class Group(base):
 
 	name = Column(String)
 
-class GroupSubject(base):
+class GroupSubject(Base):
 	__tablename__ = 'group_subjects'
 
 	id = Column(Integer, primary_key=True)
 	group_id = Column(Integer)
 	subject_id = Column(Integer)
 
-# class GroupUser(base):
+# class GroupUser(Base):
 # 	__tablename__ = 'group_users'
 
 # 	id = Column(Integer, primary_key=True)
 # 	user_id = Column(Integer)
 # 	group_id = Column(Integer)
 
-class Subject(base):
+class Subject(Base):
 	__tablename__ = 'subjects'
 
 	id = Column(Integer, primary_key=True)
@@ -65,14 +71,14 @@ class Subject(base):
 	name = Column(String)
 	shortname = Column(String)
 
-class SubjectAdmin(base):
+class SubjectAdmin(Base):
 	__tablename__ = 'subject_admins'
 
 	id = Column(Integer, primary_key=True)
 	subject_id = Column(Integer)
 	user_id = Column(Integer)
 
-class Deadline(base):
+class Deadline(Base):
 	__tablename__ = 'deadlines'
 
 	id = Column(Integer, primary_key=True)
@@ -84,12 +90,9 @@ class Deadline(base):
 	shortname = Column(String)
 	#description = Column(String)
 
-class DoneDeadline(base):
+class DoneDeadline(Base):
 	__tablename__ = 'done_deadlines'
 
 	id = Column(Integer, primary_key=True)
 	user_id = Column(Integer)
 	deadline_id = Column(Integer)
-
-from config import db
-base.metadata.create_all(db.engine)
